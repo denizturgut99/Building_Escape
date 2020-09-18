@@ -33,6 +33,7 @@ void UWorldPosition::BeginPlay()
 	FString ObjectLocation = GetOwner()->GetTransform().GetLocation().ToString();
 
 	UE_LOG(LogTemp, Warning, TEXT("%s is at position %s"), *ObjectName, *ObjectLocation);
+	UE_LOG(LogTemp, Error, TEXT("%s is located at %s"), *ObjectName, *ObjectLocation);
 }
 
 
