@@ -1,11 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
-#include "OpenDoor.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Math/UnrealMathUtility.h"
+#include "OpenDoor.h"
 
 // Sets default values for this component's properties
 UOpenDoor::UOpenDoor()
@@ -14,7 +13,6 @@ UOpenDoor::UOpenDoor()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// ...
 }
 
 
@@ -43,16 +41,19 @@ void UOpenDoor::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompon
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	if (PressurePlate && PressurePlate->IsOverlappingActor(ActorThatOpens)) {
-		ToggleDoor(DeltaTime, TargetYaw); // opens the door
+		ToggleDoor(DeltaTime, TargetYaw);
+		DoorLastOpened = GetWorld()->GetTimeSeconds();
 	}
 	else {
-		ToggleDoor(DeltaTime, InitialYaw); // closes the door
+		if ((GetWorld()->GetTimeSeconds() - DoorLastOpened) > DoorCloseDelay) {
+			ToggleDoor(DeltaTime, InitialYaw);
+		}
 	}
 }
 
 void UOpenDoor::ToggleDoor(float DeltaTime, float Target) {
 	FRotator DoorRotation = GetOwner()->GetActorRotation();
 	//FInterp is better as it ignores the frames
-	DoorRotation.Yaw = CurrentYaw = FMath::FInterpTo(CurrentYaw, Target, DeltaTime, 2); // FInterpConstantTo is faster because it is a Linear Interpolation, FInterpTo is smoother
+	DoorRotation.Yaw = CurrentYaw = FMath::FInterpTo(CurrentYaw, Target, DeltaTime, DoorCloseSpeed);
 	GetOwner()->SetActorRotation(DoorRotation);
 }
