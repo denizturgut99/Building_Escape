@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "OpenDoor.h"
+#include "Components/AudioComponent.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -23,16 +24,12 @@ UOpenDoor::UOpenDoor()
 void UOpenDoor::BeginPlay()
 {
 	Super::BeginPlay();
-
-	/*FRotator CurrentRotation = GetOwner()->GetActorRotation();
-	CurrentRotation.Yaw = 90.f;
-	
-	GetOwner()->SetActorRotation(CurrentRotation);*/
+	FindAudioComponent();
 	InitialYaw = GetOwner()->GetActorRotation().Yaw;
 	CurrentYaw = InitialYaw;
 	TargetYaw += InitialYaw;
 	if (!PressurePlate)
-		UE_LOG(LogTemp, Error, TEXT("%s has the open door component on it but no pressure plate was assigned."), *GetOwner()->GetName());
+		PressurePlateErrorMessage();
 }
 
 
@@ -42,21 +39,36 @@ void UOpenDoor::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompon
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	if (TotalMassOfActors() >= MassNeededToOpen) {
-		ToggleDoor(DeltaTime, TargetYaw);
+		ToggleDoor(DeltaTime, TargetYaw, "open");
 		DoorLastOpened = GetWorld()->GetTimeSeconds();
 	}
 	else {
-		if ((GetWorld()->GetTimeSeconds() - DoorLastOpened) > DoorCloseDelay) {
-			ToggleDoor(DeltaTime, InitialYaw);
+		if (GetWorld()->GetTimeSeconds() - DoorLastOpened > DoorCloseDelay) {
+			ToggleDoor(DeltaTime, InitialYaw, "close");
 		}
 	}
 }
 
-void UOpenDoor::ToggleDoor(float DeltaTime, float Target) {
+void UOpenDoor::ToggleDoor(float DeltaTime, float Target, FString DoorStatus) {
 	FRotator DoorRotation = GetOwner()->GetActorRotation();
 	//FInterp is better as it ignores the frames
 	DoorRotation.Yaw = CurrentYaw = FMath::FInterpTo(CurrentYaw, Target, DeltaTime, DoorCloseSpeed);
 	GetOwner()->SetActorRotation(DoorRotation);
+	if (!AudioComponent) { return; }
+	if (DoorStatus.ToLower() == "close") {
+		bOpenDoorSoundPlayed = false;
+		if (!bCloseDoorSoundPlayed) {
+			AudioComponent->Play();
+			bCloseDoorSoundPlayed = true;
+		}
+	}
+	else {
+		bCloseDoorSoundPlayed = false;
+		if (!bOpenDoorSoundPlayed) {
+			AudioComponent->Play();
+			bOpenDoorSoundPlayed = true;
+		}
+	}
 }
 
 float UOpenDoor::TotalMassOfActors() const {
@@ -64,7 +76,7 @@ float UOpenDoor::TotalMassOfActors() const {
 
 	TArray<AActor*> OverlappingActors;
 	if (!PressurePlate) {
-		UE_LOG(LogTemp, Error, TEXT("%s returned NULL! Check the pressure plate pointer."), *GetOwner()->GetName());
+		PressurePlateErrorMessage();
 		return TotalMass;
 	}
 	PressurePlate->GetOverlappingActors(OUT OverlappingActors);
@@ -74,4 +86,15 @@ float UOpenDoor::TotalMassOfActors() const {
 	}
 
 	return TotalMass;
+}
+
+void UOpenDoor::FindAudioComponent() {
+	AudioComponent = GetOwner()->FindComponentByClass<UAudioComponent>();
+	if (!AudioComponent) {
+		UE_LOG(LogTemp, Error, TEXT("%s : Audio component has returned NULL."), *GetOwner()->GetName());
+	}
+}
+
+void UOpenDoor::PressurePlateErrorMessage() const {
+	UE_LOG(LogTemp, Error, TEXT("%s : Pressure Plate component returned NULL."), *GetOwner()->GetName());
 }
